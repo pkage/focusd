@@ -1,3 +1,4 @@
+use super::common::*;
 use super::messages::*;
 use colored::*;
 
@@ -15,6 +16,11 @@ pub struct FocusClient {
 
 impl FocusClient {
     pub fn new(socket_file: String) -> Result<FocusClient, FocusClientError> {
+
+        if !file_exists(&socket_file) {
+            return Err(FocusClientError::NoConnection);
+        }
+
         let context = zmq::Context::new();
 
         let requester = context.socket(zmq::REQ).unwrap();
@@ -37,8 +43,11 @@ impl FocusClient {
     pub fn destroy(&mut self) -> () {
         println!("disconnecting socket from {}", self.socket_file);
         self.zmq_socket.disconnect(&self.socket_file).unwrap();
-        println!("destroying context...");
-        self.zmq_context.destroy().unwrap();
+        print!("destroying context...");
+        match self.zmq_context.destroy() {
+            Ok(_) => println!(" was ok"),
+            Err(_) => println!(" wasn't ok: {}", true)
+        }
         println!("cleanup should be done?");
     }
 

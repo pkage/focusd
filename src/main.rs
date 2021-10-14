@@ -1,7 +1,10 @@
-mod messages;
-
+use colored::*;
 use clap::Clap;
+
 mod client;
+mod messages;
+mod common;
+mod server;
 
 #[derive(Clap)]
 #[clap(version="0.0.1", author="Patrick Kage (patrick@ka.ge)", about="Automatically manage /etc/hosts.txt to lock out distracting websites for a finite period.")]
@@ -69,15 +72,34 @@ fn main() {
     match opts.subcmd {
         SubCommand::Daemon(d) => {
             println!("Starting daemon on socket {}", d.socket);
+            let mut daemon = match server::FocusServer::new(d.socket) {
+                Ok(d) => d,
+                Err(e) => {
+                    match e {
+                        server::FocusServerError::AlreadyRunning => println!("{}", "server already running!".red()),
+                        server::FocusServerError::NoPermissions => println!("{}", "server should be run as root".red())
+                    }
+                    return;
+                }
+            };
+
+            daemon.listen();
+
+            daemon.cleanup();
         },
         SubCommand::Client(c) => {
             println!("Starting client on socket {}", c.socket);
 
             let mut client = match client::FocusClient::new(c.socket) {
                 Ok(c) => c,
-                Err(_) => {
-                    println!("error initializing!");
-                    panic!("PANIC");
+                Err(e) => {
+                    match e {
+                        client::FocusClientError::TimedOut => println!("{}", "server timed out!".red()),
+
+                        client::FocusClientError::ServerError => println!("{}", "server errored out!".red()),
+                        client::FocusClientError::NoConnection => println!("{}", "server not running!".red()),
+                    }
+                    return;
                 }
             };
 
