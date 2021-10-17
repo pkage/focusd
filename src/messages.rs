@@ -7,15 +7,17 @@ pub enum ClientRequest {
     Ping,
     Start(String),
     Remaining,
-    Stop
+    Halt
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum ServerResponse {
     Pong,
-    Remaining(u32),
+    Remaining(u64),
     Failed,
-    Stopping
+    Halting,
+    Starting,
+    AlreadyStarted
 }
 
 pub fn client_pack(req: ClientRequest) -> Vec<u8> {

@@ -1,0 +1,13 @@
+version = '0.0.1'
+hosts_file = './hosts'
+port_file = '/tmp/focusd.sock'
+
+blocked = [
+    'news.ycombinator.com',
+    'youtube.com',
+    'facebook.com',
+    'reddit.com',
+    'xkcd.com',
+    'smbc-comics.com',
+    'netflix.com'
+]

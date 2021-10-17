@@ -2,6 +2,8 @@ use super::common::*;
 use super::messages::*;
 use colored::*;
 
+use std::fs;
+
 pub enum FocusClientError {
     TimedOut,
     NoConnection,
@@ -9,63 +11,37 @@ pub enum FocusClientError {
 }
 
 pub struct FocusClient {
-    zmq_context: zmq::Context,
-    zmq_socket:  zmq::Socket,
-    socket_file: String,
+    socket_file_in:  String,
+    socket_file_out: String
 }
 
 impl FocusClient {
     pub fn new(socket_file: String) -> Result<FocusClient, FocusClientError> {
 
-        if !file_exists(&socket_file) {
+
+        let socket_file_in  = format!("{}.in", socket_file);
+        let socket_file_out = format!("{}.out", socket_file);
+
+        if !file_exists(&socket_file_in) || !file_exists(&socket_file_out) {
             return Err(FocusClientError::NoConnection);
         }
 
-        let context = zmq::Context::new();
-
-        let requester = context.socket(zmq::REQ).unwrap();
-        let connection = format!("ipc://{}", socket_file);
-
-        requester.set_rcvtimeo(1000).unwrap();
-
-        match requester.connect(&connection) {
-            Ok(()) => (),
-            Err(_) => return Err(FocusClientError::NoConnection)
-        }
-        
         return Ok(FocusClient {
-            socket_file: connection,
-            zmq_socket: requester,
-            zmq_context: context
+            socket_file_in,
+            socket_file_out
         })
-    }
-
-    pub fn destroy(&mut self) -> () {
-        println!("disconnecting socket from {}", self.socket_file);
-        self.zmq_socket.disconnect(&self.socket_file).unwrap();
-        print!("destroying context...");
-        match self.zmq_context.destroy() {
-            Ok(_) => println!(" was ok"),
-            Err(_) => println!(" wasn't ok: {}", true)
-        }
-        println!("cleanup should be done?");
     }
 
     fn make_request(&self, msg: ClientRequest) -> Result<ServerResponse, FocusClientError> {
         let packed = client_pack(msg);
 
-        self.zmq_socket.send(packed, 0).unwrap();
+        fs::write(&self.socket_file_in, packed)
+            .expect("Unable to write to infile!");
 
-        let mut msg = zmq::Message::new();
+        let response = fs::read(&self.socket_file_out)
+            .expect("Unable to read from outfile!");
 
-        match self.zmq_socket.recv(&mut msg, 0) {
-            Ok(_) => {
-                return Ok(server_unpack(msg.to_vec()))
-            },
-            Err(_) => {
-                return Err(FocusClientError::ServerError)
-            }
-        }
+        Ok(server_unpack(response))
     }
 
     pub fn ping(&self) {
@@ -82,7 +58,42 @@ impl FocusClient {
         if res {
             println!("{}", "ponged!".green());
         } else {
-            println!("{}", "failed to pong!".green());
+            println!("{}", "failed to pong!".red());
+        }
+    }
+
+    pub fn halt(&self) {
+        print!("halting... ");
+        match self.make_request(
+            ClientRequest::Halt
+        ) {
+            Ok(_) => println!("{}", "server halted!".green()),
+            Err(_) => println!("{}", "failed!".red()),
+        };
+    }
+
+    pub fn start(&self, length: String) {
+        let res = match self.make_request(ClientRequest::Start(length)) {
+            Ok(r) => r,
+            Err(_) => return
+        };
+
+        match res {
+            ServerResponse::Starting       => println!("{}", "started!".green()),
+            ServerResponse::AlreadyStarted => println!("{}", "already started!".red()),
+            _ => ()
+        }
+    }
+
+    pub fn remaining(&self) {
+        let res = match self.make_request(ClientRequest::Remaining) {
+            Ok(r) => r,
+            Err(_) => return
+        };
+
+        match res {
+            ServerResponse::Remaining(num) => println!("{}", num),
+            _ => ()
         }
     }
 }
