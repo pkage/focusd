@@ -1,6 +1,7 @@
-version = '0.0.1'
-hosts_file = './hosts'
+version     = '0.0.2'
+hosts_file  = './hosts'
 socket_file = '/tmp/focusd.sock'
+pid_file    = '/tmp/focusd.pid'
 
 blocked = [
     'news.ycombinator.com',

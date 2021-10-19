@@ -7,6 +7,7 @@ use super::common::{file_exists, expand_path};
 pub struct FocusConfig {
     pub version: String,
     pub hosts_file: String,
+    pub pid_file: String,
     pub socket_file: String,
     pub blocked: Vec<String>
 }

@@ -3,7 +3,6 @@ use super::common::*;
 use super::config::*;
 use super::messages::*;
 use colored::*;
-
 use std::fs;
 
 pub enum FocusClientError {
@@ -88,21 +87,41 @@ impl FocusClient {
         }
     }
 
-    pub fn remaining(&self, raw: bool) {
+    pub fn remaining(&self, raw: bool, no_distract: bool) -> bool {
         let res = match self.make_request(ClientRequest::Remaining) {
             Ok(r) => r,
-            Err(_) => return
+            Err(_) => return false
         };
 
-        match res {
-            ServerResponse::Remaining(num) => {
+        let remaining = match res {
+            ServerResponse::Remaining(r) => r,
+            _ => {
+                println!("invalid response");
+                return false
+            }
+        };
+
+        match remaining {
+            ServerRunStatus::Running(num) => {
                 if raw {
                     println!("{}", num)
                 } else {
-                    println!("{}", time::create_time_string(num))
+                    if no_distract {
+                        println!("{}", time::create_time_string(num - (num % 60)))
+                    } else {
+                        println!("{}", time::create_time_string(num))
+                    }
                 }
+                return true;
+            },
+            ServerRunStatus::NotRunning => {
+                if raw {
+                    println!("-1");
+                } else {
+                    println!("idle");
+                }
+                return false;
             }
-            _ => ()
         }
     }
 }

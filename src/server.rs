@@ -39,6 +39,8 @@ impl FocusServer<'_> {
         nix::unistd::mkfifo(Path::new(&socket_file_in),  stat::Mode::S_IRWXU).unwrap();
         nix::unistd::mkfifo(Path::new(&socket_file_out), stat::Mode::S_IRWXU).unwrap();
 
+        write_pid_file(&config.pid_file);
+
         return Ok(
             FocusServer {
                 socket_file_in,
@@ -49,9 +51,10 @@ impl FocusServer<'_> {
         )
     }
 
-    pub fn cleanup(&self) {
-        file_remove_if_exists(&self.socket_file_in);
-        file_remove_if_exists(&self.socket_file_out);
+    pub fn cleanup(config: &FocusConfig) {
+        file_remove_if_exists(&format!("{}.in", config.socket_file));
+        file_remove_if_exists(&format!("{}.out", config.socket_file));
+        file_remove_if_exists(&config.pid_file);
     }
 
     fn start(&mut self, time: String) {
@@ -77,7 +80,7 @@ impl FocusServer<'_> {
         }
     }
 
-    fn check_remaining(&mut self) -> u64 {
+    fn check_remaining(&mut self) -> ServerRunStatus {
         let remaining = self.get_remaining_time();
         
         if remaining == 0 {
@@ -89,10 +92,12 @@ impl FocusServer<'_> {
                 file_write(&self.config.hosts_file, &computed_hosts);
             }
 
-            self.expires = None
+            self.expires = None;
+
+            return ServerRunStatus::NotRunning;
         }
 
-        return remaining;
+        return ServerRunStatus::Running(remaining);
     }
 
     pub fn listen(&mut self) {

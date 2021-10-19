@@ -1,5 +1,5 @@
 use colored::*;
-use clap::Clap;
+use clap::Parser;
 
 mod hosts;
 mod time;
@@ -9,8 +9,8 @@ mod messages;
 mod common;
 mod server;
 
-#[derive(Clap)]
-#[clap(version="0.0.1", author="Patrick Kage (patrick@ka.ge)", about="Automatically manage /etc/hosts to lock out distracting websites for a finite period.")]
+#[derive(Parser)]
+#[clap(version="0.0.2", author="Patrick Kage (patrick@ka.ge)", about="Automatically manage /etc/hosts to lock out distracting websites for a finite period.")]
 struct Opts {
     #[clap(short='c', long="config", default_value="~/.config/focusd/focus.toml", about="The config file to use.")]
     config: String,
@@ -19,30 +19,30 @@ struct Opts {
     subcmd: SubCommand
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum SubCommand {
-    #[clap(name="daemon",  version="0.0.1", about="Run the focusd daemon")]
+    #[clap(name="daemon",  about="Run the focusd daemon")]
     Daemon(Daemon),
 
-    #[clap(name="client",  version="0.0.1", about="Connect to the focusd daemon")]
+    #[clap(name="client",  about="Connect to the focusd daemon")]
     Client(Client),
 
-    #[clap(name="cleanup", version="0.0.1", about="Clean up the sockets")]
+    #[clap(name="cleanup", about="Clean up the sockets")]
     Cleanup,
 
-    #[clap(name="debug", version="0.0.1", about="debug")]
+    #[clap(name="debug",   about="debug")]
     Debug,
 
 }
 
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Client {
     #[clap(subcommand)]
     subcmd: ClientCommand
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum ClientCommand {
     #[clap(name="ping", about="Check if the daemon is running")]
     Ping(ClientCommandBase),
@@ -57,22 +57,25 @@ enum ClientCommand {
     Halt(ClientCommandBase)
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct ClientCommandBase {}
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct ClientCommandStart {
     #[clap(name="length", about="Length of time to run the block (e.g. 1h25m30s)")]
     length: String,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct ClientCommandRemaining {
     #[clap(long="raw", short='r', about="Leave the time in seconds")]
     raw: bool,
+
+    #[clap(long="nodistract", short='n', about="Omit the seconds from the count")]
+    no_distract: bool,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Daemon {
 }
 
@@ -93,6 +96,8 @@ fn main() {
 
     match opts.subcmd {
         SubCommand::Daemon(_) => {
+            server::FocusServer::cleanup(&config);
+
             let mut daemon = match server::FocusServer::new(&config) {
                 Ok(d) => d,
                 Err(e) => {
@@ -106,25 +111,29 @@ fn main() {
 
             daemon.listen();
 
-            daemon.cleanup();
+            server::FocusServer::cleanup(&config);
         },
         SubCommand::Client(c) => {
+            if !common::check_pid_file(&config.pid_file) {
+                println!("{}", "server not running!".red());
+                return;
+            }
             let client = match client::FocusClient::new(&config) {
                 Ok(c) => c,
                 Err(e) => {
                     match e {
-                        // client::FocusClientError::TimedOut => println!("{}", "server timed out!".red()),
+                        // client::FocusClientError::TimedOut => println!("{}", "server timed out!"),
                         // client::FocusClientError::ServerError => println!("{}", "server errored out!".red()),
                         client::FocusClientError::NoConnection => println!("{}", "server not running!".red()),
                     }
-                    std::process::exit(1);
+                    return;
                 }
             };
 
             match c.subcmd {
                 ClientCommand::Ping(_)      => client.ping(),
                 ClientCommand::Start(s)     => client.start(s.length),
-                ClientCommand::Remaining(r) => client.remaining(r.raw),
+                ClientCommand::Remaining(r) => {client.remaining(r.raw, r.no_distract);},
                 ClientCommand::Halt(_)      => client.halt()
             };
 

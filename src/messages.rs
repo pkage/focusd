@@ -13,11 +13,17 @@ pub enum ClientRequest {
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum ServerResponse {
     Pong,
-    Remaining(u64),
+    Remaining(ServerRunStatus),
     Failed,
     Halting,
     Starting,
     AlreadyStarted
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub enum ServerRunStatus {
+    Running(u64),
+    NotRunning
 }
 
 pub fn client_pack(req: ClientRequest) -> Vec<u8> {
