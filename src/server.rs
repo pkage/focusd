@@ -10,7 +10,7 @@ use std::fs;
 
 pub enum FocusServerError {
     AlreadyRunning,
-    NoPermissions
+    // NoPermissions
 }
 
 pub struct FocusServer<'a> {
@@ -29,9 +29,9 @@ impl FocusServer<'_> {
             return Err(FocusServerError::AlreadyRunning);
         }
 
-        if !is_root() {
-            return Err(FocusServerError::NoPermissions);
-        }
+        // if !is_root() {
+        //     return Err(FocusServerError::NoPermissions);
+        // }
 
         let socket_file_in  = format!("{}.in", socket_file);
         let socket_file_out = format!("{}.out", socket_file);

@@ -25,9 +25,9 @@ pub fn file_write(path: &String, contents: &String) {
         .expect("Unable to write to file!");
 }
 
-pub fn is_root() -> bool {
-    return !nix::unistd::getuid().is_root()
-}
+// pub fn is_root() -> bool {
+//     return !nix::unistd::getuid().is_root()
+// }
 
 pub fn write_pid_file(pid_file: &String) {
     let pid = Pid::this().to_string();

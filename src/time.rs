@@ -62,9 +62,7 @@ pub fn create_time_string(time: u64) -> String {
     time_f -= hours * (60.0*60.0);
 
     let mins = (time_f / 60.0).floor();
-    if mins > 0.0 {
-        output = format!("{}{}m", output, mins)
-    }
+    output = format!("{}{}m", output, mins);
     time_f -= mins.floor() * 60.0;
 
     let secs = time_f.floor();

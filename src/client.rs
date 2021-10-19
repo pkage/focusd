@@ -24,6 +24,10 @@ impl FocusClient {
         let socket_file_in  = format!("{}.in", socket_file);
         let socket_file_out = format!("{}.out", socket_file);
 
+        if !check_pid_file(&config.pid_file) {
+            return Err(FocusClientError::NoConnection);
+        }
+
         if !file_exists(&socket_file_in) || !file_exists(&socket_file_out) {
             return Err(FocusClientError::NoConnection);
         }

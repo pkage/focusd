@@ -1,5 +1,5 @@
 version     = '0.0.2'
-hosts_file  = './hosts'
+hosts_file  = '/etc/hosts'
 socket_file = '/tmp/focusd.sock'
 pid_file    = '/tmp/focusd.pid'
 

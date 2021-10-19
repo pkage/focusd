@@ -22,10 +22,7 @@ struct Opts {
 #[derive(Parser)]
 enum SubCommand {
     #[clap(name="daemon",  about="Run the focusd daemon")]
-    Daemon(Daemon),
-
-    #[clap(name="client",  about="Connect to the focusd daemon")]
-    Client(Client),
+    Daemon,
 
     #[clap(name="cleanup", about="Clean up the sockets")]
     Cleanup,
@@ -33,19 +30,8 @@ enum SubCommand {
     #[clap(name="debug",   about="debug")]
     Debug,
 
-}
-
-
-#[derive(Parser)]
-struct Client {
-    #[clap(subcommand)]
-    subcmd: ClientCommand
-}
-
-#[derive(Parser)]
-enum ClientCommand {
     #[clap(name="ping", about="Check if the daemon is running")]
-    Ping(ClientCommandBase),
+    Ping,
 
     #[clap(name="remaining", about="Check if the daemon is running")]
     Remaining(ClientCommandRemaining),
@@ -54,11 +40,9 @@ enum ClientCommand {
     Start(ClientCommandStart),
 
     #[clap(name="halt", about="Halt the server")]
-    Halt(ClientCommandBase)
-}
+    Halt,
 
-#[derive(Parser)]
-struct ClientCommandBase {}
+}
 
 #[derive(Parser)]
 struct ClientCommandStart {
@@ -75,8 +59,19 @@ struct ClientCommandRemaining {
     no_distract: bool,
 }
 
-#[derive(Parser)]
-struct Daemon {
+fn get_client(config: &config::FocusConfig) -> client::FocusClient {
+    let client = match client::FocusClient::new(&config) {
+        Ok(c) => c,
+        Err(e) => {
+            match e {
+                // client::FocusClientError::TimedOut => println!("{}", "server timed out!"),
+                // client::FocusClientError::ServerError => println!("{}", "server errored out!".red()),
+                client::FocusClientError::NoConnection => println!("{}", "not running".red()),
+            }
+            std::process::exit(0);
+        }
+    };
+    return client;
 }
 
 fn main() {
@@ -95,7 +90,7 @@ fn main() {
     };
 
     match opts.subcmd {
-        SubCommand::Daemon(_) => {
+        SubCommand::Daemon => {
             server::FocusServer::cleanup(&config);
 
             let mut daemon = match server::FocusServer::new(&config) {
@@ -103,7 +98,7 @@ fn main() {
                 Err(e) => {
                     match e {
                         server::FocusServerError::AlreadyRunning => println!("{}", "server already running!".red()),
-                        server::FocusServerError::NoPermissions => println!("{}", "server should be run as root".red())
+                        // server::FocusServerError::NoPermissions => println!("{}", "server should be run as root".red())
                     }
                     return;
                 }
@@ -113,30 +108,13 @@ fn main() {
 
             server::FocusServer::cleanup(&config);
         },
-        SubCommand::Client(c) => {
-            if !common::check_pid_file(&config.pid_file) {
-                println!("{}", "server not running!".red());
-                return;
-            }
-            let client = match client::FocusClient::new(&config) {
-                Ok(c) => c,
-                Err(e) => {
-                    match e {
-                        // client::FocusClientError::TimedOut => println!("{}", "server timed out!"),
-                        // client::FocusClientError::ServerError => println!("{}", "server errored out!".red()),
-                        client::FocusClientError::NoConnection => println!("{}", "server not running!".red()),
-                    }
-                    return;
-                }
-            };
-
-            match c.subcmd {
-                ClientCommand::Ping(_)      => client.ping(),
-                ClientCommand::Start(s)     => client.start(s.length),
-                ClientCommand::Remaining(r) => {client.remaining(r.raw, r.no_distract);},
-                ClientCommand::Halt(_)      => client.halt()
-            };
-
+        SubCommand::Ping => get_client(&config).ping(),
+        SubCommand::Halt => get_client(&config).halt(),
+        SubCommand::Remaining(r) => {
+            get_client(&config).remaining(r.raw, r.no_distract);
+        },
+        SubCommand::Start(s) => {
+            get_client(&config).start(s.length);
         },
         SubCommand::Cleanup => {
             common::file_remove_if_exists(&format!("{}.in", config.socket_file));
