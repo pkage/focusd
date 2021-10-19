@@ -1,13 +1,15 @@
+use super::time;
 use super::common::*;
+use super::config::*;
 use super::messages::*;
 use colored::*;
 
 use std::fs;
 
 pub enum FocusClientError {
-    TimedOut,
+    // TimedOut,
     NoConnection,
-    ServerError
+    // ServerError
 }
 
 pub struct FocusClient {
@@ -16,8 +18,9 @@ pub struct FocusClient {
 }
 
 impl FocusClient {
-    pub fn new(socket_file: String) -> Result<FocusClient, FocusClientError> {
+    pub fn new(config: &FocusConfig) -> Result<FocusClient, FocusClientError> {
 
+        let socket_file = &config.socket_file;
 
         let socket_file_in  = format!("{}.in", socket_file);
         let socket_file_out = format!("{}.out", socket_file);
@@ -85,14 +88,20 @@ impl FocusClient {
         }
     }
 
-    pub fn remaining(&self) {
+    pub fn remaining(&self, raw: bool) {
         let res = match self.make_request(ClientRequest::Remaining) {
             Ok(r) => r,
             Err(_) => return
         };
 
         match res {
-            ServerResponse::Remaining(num) => println!("{}", num),
+            ServerResponse::Remaining(num) => {
+                if raw {
+                    println!("{}", num)
+                } else {
+                    println!("{}", time::create_time_string(num))
+                }
+            }
             _ => ()
         }
     }

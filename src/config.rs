@@ -1,7 +1,7 @@
 use toml;
 use std::fs::read_to_string;
 use serde::Deserialize;
-use super::common;
+use super::common::{file_exists, expand_path};
 
 #[derive(Debug, Deserialize)]
 pub struct FocusConfig {
@@ -18,10 +18,12 @@ pub enum FocusConfigError {
 }
 
 pub fn read_config(configfile: &String) -> Result<FocusConfig, FocusConfigError> {
-    if !common::file_exists(&configfile) {
+    let config_path = expand_path(&configfile);
+    if !file_exists(&config_path) {
         return Err(FocusConfigError::ConfigMissing);
     }
-    let config_string = read_to_string(&configfile);
+
+    let config_string = read_to_string(&config_path);
 
     let config: FocusConfig = match  toml::from_str(&config_string.unwrap()) {
         Ok(cfg) => cfg,

@@ -45,7 +45,34 @@ pub fn parse_time_string(time: &String) -> Result<u64, ()> {
         }
     }
 
-    println!("parsed {} to {} seconds", time, current_seconds);
+    // println!("parsed {} to {} seconds", time, current_seconds);
 
     return Ok(current_seconds); 
+}
+
+pub fn create_time_string(time: u64) -> String {
+    let mut output: String = "".to_string();
+
+    let mut time_f = time as f64;
+
+    let hours = (time_f / (60.0*60.0)).floor();
+    if hours > 0.0 {
+        output = format!("{}{}h", output, hours)
+    }
+    time_f -= hours * (60.0*60.0);
+
+    let mins = (time_f / 60.0).floor();
+    if mins > 0.0 {
+        output = format!("{}{}m", output, mins)
+    }
+    time_f -= mins.floor() * 60.0;
+
+    let secs = time_f.floor();
+    if secs != 0.0 {
+        output = format!("{}{}s", output, secs);
+    }
+
+    // println!("converted {} to {}", time, output);
+
+    return output;
 }

@@ -1,6 +1,6 @@
 version = '0.0.1'
 hosts_file = './hosts'
-port_file = '/tmp/focusd.sock'
+socket_file = '/tmp/focusd.sock'
 
 blocked = [
     'news.ycombinator.com',

@@ -1,4 +1,6 @@
+use super::hosts;
 use super::time::*;
+use super::config::*;
 use super::common::*;
 use super::messages::*;
 
@@ -11,14 +13,17 @@ pub enum FocusServerError {
     NoPermissions
 }
 
-pub struct FocusServer {
+pub struct FocusServer<'a> {
     socket_file_in: String,
     socket_file_out: String,
+    config: &'a FocusConfig,
     expires: Option<u64>
 }
 
-impl FocusServer {
-    pub fn new(socket_file: String) -> Result<FocusServer, FocusServerError> {
+impl FocusServer<'_> {
+    pub fn new(config: &FocusConfig) -> Result<FocusServer, FocusServerError> {
+
+        let socket_file = &config.socket_file;
         
         if file_exists(&socket_file) {
             return Err(FocusServerError::AlreadyRunning);
@@ -38,6 +43,7 @@ impl FocusServer {
             FocusServer {
                 socket_file_in,
                 socket_file_out,
+                config,
                 expires: Option::None
             }
         )
@@ -50,21 +56,47 @@ impl FocusServer {
 
     fn start(&mut self, time: String) {
         let secs = parse_time_string(&time).unwrap();
-        println!("[dummy] starting with {}", secs);
+        println!("[timestart] starting with {}", secs);
 
-        self.expires = Some(get_time() + secs)
+        self.expires = Some(get_time() + secs);
+
+        let computed_hosts = hosts::hosts_add(&self.config.hosts_file, &self.config.blocked)
+                .expect("Unable to parse hosts file");
+
+        file_write(&self.config.hosts_file, &computed_hosts);
     }
 
-    fn get_remaining(&self) -> u64 {
+    fn get_remaining_time(&self) -> u64 {
         match self.expires {
-            Some(secs) => secs - get_time(),
+            Some(secs) => if secs > get_time() {
+                secs - get_time()
+            } else {
+                0
+            },
             None       => 0
         }
     }
 
+    fn check_remaining(&mut self) -> u64 {
+        let remaining = self.get_remaining_time();
+        
+        if remaining == 0 {
+            if hosts::hosts_active(&self.config.hosts_file).unwrap_or(false) {
+                println!("[timeend] cleaning up hosts");
+                let computed_hosts = hosts::hosts_remove(&self.config.hosts_file)
+                    .expect("Unable to parse hosts file!");
+
+                file_write(&self.config.hosts_file, &computed_hosts);
+            }
+
+            self.expires = None
+        }
+
+        return remaining;
+    }
+
     pub fn listen(&mut self) {
         loop {
-            println!("reading infile...");
             let request = fs::read(&self.socket_file_in)
                 .expect("Unable to read from infile!");
 
@@ -79,7 +111,7 @@ impl FocusServer {
                     self.start(time);
                     ServerResponse::Starting
                 },
-                ClientRequest::Remaining => ServerResponse::Remaining(self.get_remaining())
+                ClientRequest::Remaining => ServerResponse::Remaining(self.check_remaining())
             };
     
             fs::write(&self.socket_file_out, server_pack(response))
